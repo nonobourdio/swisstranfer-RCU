@@ -37,7 +37,15 @@ except ImportError:
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-# Python interpreter to use (auto-detect current interpreter by default)
+# Detect if running as a PyInstaller-frozen executable
+if getattr(sys, "frozen", False):
+    _BUNDLE_ROOT = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path(sys.executable).parent
+    _EXE_DIR = Path(sys.executable).parent
+else:
+    _BUNDLE_ROOT = Path(__file__).parent.resolve()
+    _EXE_DIR = _BUNDLE_ROOT
+
+# Python interpreter — in frozen mode, the exe IS the interpreter
 PYTHON_EXE = sys.executable
 
 # Browser executable for headless reCAPTCHA — auto-detect at runtime (see below)
@@ -60,8 +68,8 @@ API_HEADERS = {
     "Referer": "https://www.swisstransfer.com/en",
 }
 
-# Script directory (for icon path)
-SCRIPT_DIR = Path(__file__).parent.resolve()
+# Script directory (for icon path — works in both frozen and dev mode)
+SCRIPT_DIR = _BUNDLE_ROOT
 ICON_PATH = SCRIPT_DIR / "icons" / "swisstransfer.ico"
 
 # ─── Browser auto-detection ──────────────────────────────────────────────────
@@ -462,25 +470,60 @@ _REG_KEYS = [
 ]
 
 
+# Install directory (permanent location for the exe when installed)
+INSTALL_DIR = Path(os.environ.get("LOCALAPPDATA", str(_EXE_DIR))) / "SwissTransferRCU"
+INSTALLED_EXE = INSTALL_DIR / "SwissTransferRCU.exe"
+INSTALLED_ICON = INSTALL_DIR / "icons" / "swisstransfer.ico"
+
+
+def _install_files():
+    """Copy the exe + icons to the permanent install directory."""
+    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+    (INSTALL_DIR / "icons").mkdir(exist_ok=True)
+
+    # Copy exe
+    src_exe = Path(sys.executable)
+    if src_exe.resolve() != INSTALLED_EXE.resolve():
+        shutil.copy2(src_exe, INSTALLED_EXE)
+        log(f"  Installed: {INSTALLED_EXE}")
+
+    # Copy icon
+    if ICON_PATH.exists():
+        shutil.copy2(ICON_PATH, INSTALLED_ICON)
+
+    return True
+
+
 def setup_registry():
-    """Add 'Envoyer via SwissTransfer' to the Windows Explorer right-click menu."""
-    script = str(SCRIPT_DIR / "swisstransfer_upload.py")
-    python = PYTHON_EXE
-    icon = str(ICON_PATH) if ICON_PATH.exists() else ""
+    """Install the tool to %LOCALAPPDATA% and add it to the Explorer right-click menu."""
+    # In frozen (exe) mode: install to permanent location, then register
+    if getattr(sys, "frozen", False):
+        _install_files()
+        exe = str(INSTALLED_EXE)
+        icon = str(INSTALLED_ICON) if INSTALLED_ICON.exists() else ""
+        cmd_file = f'"{exe}" "%1"'
+        cmd_dir_bg = f'"{exe}" "%V"'
+    else:
+        # Dev mode: run from source
+        script = str(SCRIPT_DIR / "swisstransfer_upload.py")
+        python = PYTHON_EXE
+        icon = str(ICON_PATH) if ICON_PATH.exists() else ""
+        cmd_file = f'"{python}" "{script}" "%1"'
+        cmd_dir_bg = f'"{python}" "{script}" "%V"'
 
     entries = [
         # (key, value_name, value_data)
         (_REG_KEYS[0], None, "Envoyer via SwissTransfer"),
         (_REG_KEYS[0], "Icon", icon),
-        (_REG_KEYS[0] + r"\command", None, f'"{python}" "{script}" "%1"'),
+        (_REG_KEYS[0] + r"\command", None, cmd_file),
 
         (_REG_KEYS[1], None, "Envoyer via SwissTransfer"),
         (_REG_KEYS[1], "Icon", icon),
-        (_REG_KEYS[1] + r"\command", None, f'"{python}" "{script}" "%1"'),
+        (_REG_KEYS[1] + r"\command", None, cmd_file),
 
         (_REG_KEYS[2], None, "Envoyer via SwissTransfer"),
         (_REG_KEYS[2], "Icon", icon),
-        (_REG_KEYS[2] + r"\command", None, f'"{python}" "{script}" "%V"'),
+        (_REG_KEYS[2] + r"\command", None, cmd_dir_bg),
     ]
 
     for key, name, val in entries:
@@ -499,10 +542,16 @@ def setup_registry():
 
 
 def uninstall_registry():
-    """Remove all SwissTransfer context menu entries."""
+    """Remove all SwissTransfer context menu entries and delete installed files."""
     for key in _REG_KEYS:
         subprocess.run(["reg", "delete", key, "/f"], capture_output=True)
-    log("Context menu removed.")
+
+    # Remove installed files
+    if INSTALL_DIR.exists():
+        shutil.rmtree(INSTALL_DIR, ignore_errors=True)
+        log(f"  Removed: {INSTALL_DIR}")
+
+    log("Context menu removed and files deleted.")
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
