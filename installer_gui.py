@@ -92,7 +92,7 @@ class InstallerGUI:
         style.configure("Status.TLabel", font=("Segoe UI", 9), foreground="gray")
 
         # Title
-        ttk.Label(root, text="🇨🇭 SwissTransfer RCU", style="Title.TLabel").pack(pady=(30, 5))
+        ttk.Label(root, text="SwissTransfer RCU", style="Title.TLabel").pack(pady=(30, 5))
         ttk.Label(root, text=f"v{APP_VERSION} — Right-click upload for Windows Explorer",
                   style="Info.TLabel").pack(pady=(0, 20))
 
@@ -100,7 +100,7 @@ class InstallerGUI:
         self.status_var = tk.StringVar()
         installed = is_installed()
         self.status_var.set(
-            "✅ Installed" if installed else "❌ Not installed"
+            "[Installed]" if installed else "[Not installed]"
         )
         self.status_label = ttk.Label(root, textvariable=self.status_var,
                                        style="Status.TLabel")
@@ -133,7 +133,7 @@ class InstallerGUI:
 
         success, msg = install()
         if success:
-            self.status_var.set("✅ Installed")
+            self.status_var.set("[Installed]")
             self.install_btn.config(state=tk.DISABLED)
             self.uninstall_btn.config(state=tk.NORMAL)
             self.progress_var.set("")
@@ -156,7 +156,7 @@ class InstallerGUI:
 
         success, msg = uninstall()
         if success:
-            self.status_var.set("❌ Not installed")
+            self.status_var.set("[Not installed]")
             self.install_btn.config(state=tk.NORMAL)
             self.uninstall_btn.config(state=tk.DISABLED)
             self.progress_var.set("")

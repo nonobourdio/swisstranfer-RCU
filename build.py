@@ -47,7 +47,7 @@ def _run_pyinstaller(args, label):
 
     result = subprocess.run(args, cwd=str(ROOT))
     if result.returncode != 0:
-        print(f"\n❌ BUILD FAILED: {label}")
+        print(f"\nBUILD FAILED: {label}")
         sys.exit(1)
 
 
@@ -73,9 +73,9 @@ def build_main():
     exe = DIST_DIR / f"{MAIN_EXE_NAME}.exe"
     if exe.exists():
         size_mb = exe.stat().st_size / (1024 * 1024)
-        print(f"  ✅ {exe}  ({size_mb:.1f} MB)")
+        print(f"  [OK] {exe}  ({size_mb:.1f} MB)")
     else:
-        print(f"  ❌ {exe} not found!")
+        print(f"  [FAIL] {exe} not found!")
         sys.exit(1)
 
 
@@ -97,9 +97,9 @@ def build_installer():
     exe = DIST_DIR / f"{INSTALLER_EXE_NAME}.exe"
     if exe.exists():
         size_mb = exe.stat().st_size / (1024 * 1024)
-        print(f"  ✅ {exe}  ({size_mb:.1f} MB)")
+        print(f"  [OK] {exe}  ({size_mb:.1f} MB)")
     else:
-        print(f"  ❌ {exe} not found!")
+        print(f"  [FAIL] {exe} not found!")
         sys.exit(1)
 
 
