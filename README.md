@@ -1,4 +1,4 @@
-# 🇨🇭 SwissTransfer RCU
+# SwissTransfer RCU
 
 **Right-click → Upload via SwissTransfer** for Windows Explorer.
 
