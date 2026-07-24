@@ -554,6 +554,107 @@ def uninstall_registry():
     log("Context menu removed and files deleted.")
 
 
+# ─── Installer GUI ───────────────────────────────────────────────────────────
+
+APP_VERSION = "1.0.0"
+
+
+def _is_installed():
+    """Check if the tool is already installed (registry key exists)."""
+    if not winreg:
+        return False
+    try:
+        winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            _REG_KEYS[0] + r"\command",
+        )
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+
+def show_installer_gui():
+    """Show the installer/uninstaller GUI when launched with no arguments."""
+    import tkinter as tk
+    from tkinter import ttk, messagebox
+
+    def do_install():
+        progress_var.set("Installing...")
+        root.update()
+        ok = setup_registry()
+        if ok:
+            status_var.set("[Installed]")
+            install_btn.config(state=tk.DISABLED)
+            uninstall_btn.config(state=tk.NORMAL)
+            progress_var.set("")
+            messagebox.showinfo("SwissTransfer RCU",
+                "Installation complete!\n\n"
+                "Right-click any file in Explorer -> 'Show more options' -> "
+                "'Envoyer via SwissTransfer'\n\n"
+                "You may need to restart Explorer for the menu to appear.")
+        else:
+            progress_var.set("Installation failed!")
+            messagebox.showerror("SwissTransfer RCU", "Installation failed.")
+
+    def do_uninstall():
+        if not messagebox.askyesno("SwissTransfer RCU", "Remove SwissTransfer RCU?"):
+            return
+        progress_var.set("Uninstalling...")
+        root.update()
+        uninstall_registry()
+        status_var.set("[Not installed]")
+        install_btn.config(state=tk.NORMAL)
+        uninstall_btn.config(state=tk.DISABLED)
+        progress_var.set("")
+        messagebox.showinfo("SwissTransfer RCU", "SwissTransfer RCU has been removed.")
+
+    root = tk.Tk()
+    root.title("SwissTransfer RCU")
+    root.geometry("440x320")
+    root.resizable(False, False)
+
+    if ICON_PATH.exists():
+        try:
+            root.iconbitmap(default=str(ICON_PATH))
+        except Exception:
+            pass
+
+    style = ttk.Style()
+    style.configure("Title.TLabel", font=("Segoe UI", 16, "bold"))
+    style.configure("Info.TLabel", font=("Segoe UI", 10))
+    style.configure("Status.TLabel", font=("Segoe UI", 9), foreground="gray")
+
+    ttk.Label(root, text="SwissTransfer RCU", style="Title.TLabel").pack(pady=(30, 5))
+    ttk.Label(root, text=f"v{APP_VERSION} -- Right-click upload for Windows Explorer",
+              style="Info.TLabel").pack(pady=(0, 20))
+
+    status_var = tk.StringVar()
+    installed = _is_installed()
+    status_var.set("[Installed]" if installed else "[Not installed]")
+    ttk.Label(root, textvariable=status_var, style="Status.TLabel").pack(pady=10)
+
+    btn_frame = ttk.Frame(root)
+    btn_frame.pack(pady=20)
+
+    install_btn = ttk.Button(btn_frame, text="Install", command=do_install, width=15)
+    install_btn.pack(side=tk.LEFT, padx=10)
+
+    uninstall_btn = ttk.Button(btn_frame, text="Uninstall", command=do_uninstall, width=15)
+    uninstall_btn.pack(side=tk.LEFT, padx=10)
+
+    progress_var = tk.StringVar()
+    ttk.Label(root, textvariable=progress_var, style="Status.TLabel").pack(pady=10)
+
+    if installed:
+        install_btn.config(state=tk.DISABLED)
+    else:
+        uninstall_btn.config(state=tk.DISABLED)
+
+    root.mainloop()
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -574,7 +675,9 @@ def main():
         uninstall_registry()
         return
     if not args.files:
-        parser.error("No files specified. Use --setup to install the context menu.")
+        # No arguments: show the installer GUI
+        show_installer_gui()
+        return
 
     # Expand directories
     all_files = []
